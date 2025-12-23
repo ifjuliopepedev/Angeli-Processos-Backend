@@ -1,5 +1,5 @@
-// /pages/api/contatos.js
 export default async function handler(req, res) {
+  // Habilita CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -7,49 +7,81 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
+    const { processo } = req.query;
+
+    if (!processo) {
+      return res.status(400).json({
+        ok: false,
+        error: "Número do processo não informado"
+      });
+    }
+
     const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
-    let start = 0;
-    const todosContatos = [];
-    let batch;
+    const CAMPO_PROCESSO = "UF_CRM_1758883069045";
+    const CAMPO_COMARCA  = "UF_CRM_1758883106364";
+    const CAMPO_ASSUNTO  = "UF_CRM_1758883116821";
+    const CAMPO_ULT_MOV  = "UF_CRM_1758883141020";
+    const CAMPO_DATA_UM  = "UF_CRM_1758883152876";
 
-    do {
-      const url = `${BITRIX_WEBHOOK}/crm.contact.list.json` +
-        `?select[]=ID` +
-        `&select[]=NAME` +
-        `&select[]=LAST_NAME` +
-        `&select[]=UF_CRM_*` + // campos personalizados
-        `&order[ID]=ASC` +
-        `&start=${start}`;
+    // 1️⃣ Busca o deal pelo número do processo
+    const urlDeal = `${BITRIX_WEBHOOK}/crm.deal.list.json` +
+      `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
+      `&select[]=ID` +
+      `&select[]=STAGE_ID` +
+      `&select[]=STAGE_SEMANTIC_ID` +
+      `&select[]=CLOSED` +
+      `&select[]=${CAMPO_PROCESSO}` +
+      `&select[]=${CAMPO_COMARCA}` +
+      `&select[]=${CAMPO_ASSUNTO}` +
+      `&select[]=${CAMPO_ULT_MOV}` +
+      `&select[]=${CAMPO_DATA_UM}` +
+      `&select[]=CONTACT_ID` + // pega o contato associado
+      `&order[DATE_MODIFY]=DESC`;
 
-      const response = await fetch(url);
-      const data = await response.json();
+    const responseDeal = await fetch(urlDeal);
+    const dataDeal = await responseDeal.json();
 
-      batch = data.result || [];
+    if (!dataDeal.result || dataDeal.result.length === 0) {
+      return res.status(200).json({ ok: true, result: null });
+    }
 
-      // pega apenas o nome + campos personalizados
-      const contatosSimplificados = batch.map(contato => {
-        const campos = { 
-          ID: contato.ID, 
-          NOME: contato.NAME 
-        };
-        // adiciona campos personalizados se existirem
-        for (let key in contato) {
-          if (key.startsWith("UF_CRM_")) {
-            campos[key] = contato[key];
-          }
-        }
-        return campos;
-      });
+    // Escolhe o deal mais relevante (aberto ou mais recente)
+    let deal = dataDeal.result.find(d => d.CLOSED === "N") || dataDeal.result[0];
 
-      todosContatos.push(...contatosSimplificados);
-      start += 50;
-    } while (batch.length === 50);
+    // 2️⃣ Pega o contato associado (ID do cliente)
+    let nomeCliente = "";
+    if (deal.CONTACT_ID) {
+      const urlContact = `${BITRIX_WEBHOOK}/crm.contact.get.json?id=${deal.CONTACT_ID}`;
+      const responseContact = await fetch(urlContact);
+      const dataContact = await responseContact.json();
+
+      if (dataContact.result) {
+        const contato = dataContact.result;
+        nomeCliente = `${contato.NAME || ""} ${contato.LAST_NAME || ""}`.trim();
+      }
+    }
+
+    // 3️⃣ Converte STAGE_SEMANTIC_ID em status legível
+    const status = deal.STAGE_SEMANTIC_ID === "S"
+      ? "Ganhou"
+      : deal.STAGE_SEMANTIC_ID === "F"
+      ? "Perdeu"
+      : "Em andamento";
 
     return res.status(200).json({
       ok: true,
-      total: todosContatos.length,
-      result: todosContatos
+      result: {
+        processo: deal[CAMPO_PROCESSO] || "",
+        cliente: nomeCliente,
+        status,
+        fechado: deal.CLOSED === "Y",
+        comarca: deal[CAMPO_COMARCA] || "",
+        assunto: deal[CAMPO_ASSUNTO] || "",
+        fase: deal.STAGE_ID || "", // agora pega a fase correta
+        ultima_movimentacao: deal[CAMPO_ULT_MOV] || "",
+        data_ultima_movimentacao: deal[CAMPO_DATA_UM] || ""
+      }
     });
 
   } catch (err) {

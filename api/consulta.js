@@ -1,4 +1,4 @@
-// backend/contatoOrganizado.js
+// backend/todosContatos.js
 export default async function handler(req, res) {
   // Habilita CORS
   res.setHeader("Access-Control-Allow-Origin", "*"); 
@@ -11,56 +11,47 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { contatoId, email, telefone } = req.query;
-
-    if (!contatoId && !email && !telefone) {
-      return res.status(400).json({
-        ok: false,
-        error: "Informe pelo menos um parâmetro: contatoId, email ou telefone"
-      });
-    }
-
     const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
-    // Monta filtro dinâmico
-    let filtro = {};
-    if (contatoId) filtro.ID = contatoId;
-    if (email) filtro.EMAIL = email;
-    if (telefone) filtro.PHONE = telefone;
+    let start = 0;
+    const todosContatos = [];
+    let batch;
 
-    const queryString = Object.entries(filtro)
-      .map(([key, value]) => `filter[${key}]=${encodeURIComponent(value)}`)
-      .join("&");
+    do {
+      // URL da API para listar contatos, 50 por vez
+      const url = `${BITRIX_WEBHOOK}/crm.contact.list.json` +
+        `?select[]=ID` +
+        `&select[]=NAME` +
+        `&select[]=LAST_NAME` +
+        `&select[]=PHONE` +
+        `&select[]=EMAIL` +
+        `&select[]=COMMENTS` +
+        `&select[]=UF_CRM_*` +
+        `&order[ID]=ASC` +
+        `&start=${start}`;
 
-    // Chama a API para listar contatos
-    const url = `${BITRIX_WEBHOOK}/crm.contact.list.json?${queryString}` +
-      `&select[]=ID` +
-      `&select[]=NAME` +
-      `&select[]=LAST_NAME` +
-      `&select[]=PHONE` +
-      `&select[]=EMAIL` +
-      `&select[]=COMMENTS` +
-      `&select[]=UF_CRM_*`; // todos campos personalizados
+      const response = await fetch(url);
+      const data = await response.json();
 
-    const response = await fetch(url);
-    const data = await response.json();
+      batch = data.result || [];
 
-    if (!data.result || data.result.length === 0) {
-      return res.status(200).json({ ok: true, result: [] });
-    }
+      // Organiza cada contato em campo → valor
+      const contatosOrganizados = batch.map(contato => {
+        const campos = {};
+        for (let key in contato) {
+          campos[key] = contato[key] || null;
+        }
+        return campos;
+      });
 
-    // Organiza os campos de cada contato
-    const contatosOrganizados = data.result.map(contato => {
-      let campos = {};
-      for (let key in contato) {
-        campos[key] = contato[key] || null;
-      }
-      return campos;
-    });
+      todosContatos.push(...contatosOrganizados);
+      start += 50;
+    } while (batch.length === 50); // continua até não ter mais contatos
 
     return res.status(200).json({
       ok: true,
-      result: contatosOrganizados
+      total: todosContatos.length,
+      result: todosContatos
     });
 
   } catch (err) {

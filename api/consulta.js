@@ -1,4 +1,4 @@
-// backend/contato.js
+// backend/contatoOrganizado.js
 export default async function handler(req, res) {
   // Habilita CORS
   res.setHeader("Access-Control-Allow-Origin", "*"); 
@@ -22,13 +22,12 @@ export default async function handler(req, res) {
 
     const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
-    // Monta filtro dinamicamente
+    // Monta filtro dinâmico
     let filtro = {};
     if (contatoId) filtro.ID = contatoId;
     if (email) filtro.EMAIL = email;
     if (telefone) filtro.PHONE = telefone;
 
-    // Converte o filtro em query string
     const queryString = Object.entries(filtro)
       .map(([key, value]) => `filter[${key}]=${encodeURIComponent(value)}`)
       .join("&");
@@ -50,9 +49,18 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, result: [] });
     }
 
+    // Organiza os campos de cada contato
+    const contatosOrganizados = data.result.map(contato => {
+      let campos = {};
+      for (let key in contato) {
+        campos[key] = contato[key] || null;
+      }
+      return campos;
+    });
+
     return res.status(200).json({
       ok: true,
-      result: data.result // array de contatos
+      result: contatosOrganizados
     });
 
   } catch (err) {

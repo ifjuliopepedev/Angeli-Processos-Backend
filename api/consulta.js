@@ -29,6 +29,7 @@ export default async function handler(req, res) {
       `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
       `&select[]=ID` +
       `&select[]=STAGE_ID` +
+      `&select[]=STAGE_NAME` + // agora pega o nome legível da fase
       `&select[]=STAGE_SEMANTIC_ID` +
       `&select[]=CLOSED` +
       `&select[]=${CAMPO_PROCESSO}` +
@@ -78,7 +79,7 @@ export default async function handler(req, res) {
         fechado: deal.CLOSED === "Y",
         comarca: deal[CAMPO_COMARCA] || "",
         assunto: deal[CAMPO_ASSUNTO] || "",
-        fase: deal.STAGE_ID || "", // agora pega a fase correta
+        fase: deal.STAGE_NAME || deal.STAGE_ID, // agora retorna o nome legível
         ultima_movimentacao: deal[CAMPO_ULT_MOV] || "",
         data_ultima_movimentacao: deal[CAMPO_DATA_UM] || ""
       }

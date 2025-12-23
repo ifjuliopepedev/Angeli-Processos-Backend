@@ -1,14 +1,10 @@
-// backend/todosContatos.js
+// /pages/api/contatos.js
 export default async function handler(req, res) {
-  // Habilita CORS
-  res.setHeader("Access-Control-Allow-Origin", "*"); 
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // Responde a requisições OPTIONS (preflight)
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
     const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
@@ -18,15 +14,11 @@ export default async function handler(req, res) {
     let batch;
 
     do {
-      // URL da API para listar contatos, 50 por vez
       const url = `${BITRIX_WEBHOOK}/crm.contact.list.json` +
         `?select[]=ID` +
         `&select[]=NAME` +
         `&select[]=LAST_NAME` +
-        `&select[]=PHONE` +
-        `&select[]=EMAIL` +
-        `&select[]=COMMENTS` +
-        `&select[]=UF_CRM_*` +
+        `&select[]=UF_CRM_*` + // campos personalizados
         `&order[ID]=ASC` +
         `&start=${start}`;
 
@@ -35,18 +27,24 @@ export default async function handler(req, res) {
 
       batch = data.result || [];
 
-      // Organiza cada contato em campo → valor
-      const contatosOrganizados = batch.map(contato => {
-        const campos = {};
+      // pega apenas o nome + campos personalizados
+      const contatosSimplificados = batch.map(contato => {
+        const campos = { 
+          ID: contato.ID, 
+          NOME: contato.NAME 
+        };
+        // adiciona campos personalizados se existirem
         for (let key in contato) {
-          campos[key] = contato[key] || null;
+          if (key.startsWith("UF_CRM_")) {
+            campos[key] = contato[key];
+          }
         }
         return campos;
       });
 
-      todosContatos.push(...contatosOrganizados);
+      todosContatos.push(...contatosSimplificados);
       start += 50;
-    } while (batch.length === 50); // continua até não ter mais contatos
+    } while (batch.length === 50);
 
     return res.status(200).json({
       ok: true,

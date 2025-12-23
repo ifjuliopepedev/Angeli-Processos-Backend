@@ -1,4 +1,14 @@
 export default async function handler(req, res) {
+  // Habilita CORS
+  res.setHeader("Access-Control-Allow-Origin", "*"); // permite qualquer domínio
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // Responde a requisições OPTIONS (preflight)
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   try {
     const { processo } = req.query;
 
@@ -43,7 +53,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, result: null });
     }
 
-    // 🔥 Escolhe o processo mais relevante
+    // Escolhe o processo mais relevante
     let deal =
       data.result.find(d => d.CLOSED === "N") ||
       data.result[0];

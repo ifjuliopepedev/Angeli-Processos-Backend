@@ -17,7 +17,6 @@ export default async function handler(req, res) {
     }
 
     const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
-
     const CAMPO_PROCESSO = "UF_CRM_1758883069045";
     const CAMPO_COMARCA  = "UF_CRM_1758883106364";
     const CAMPO_ASSUNTO  = "UF_CRM_1758883116821";
@@ -29,7 +28,6 @@ export default async function handler(req, res) {
       `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
       `&select[]=ID` +
       `&select[]=STAGE_ID` +
-      `&select[]=STAGE_NAME` + // agora pega o nome legível da fase
       `&select[]=STAGE_SEMANTIC_ID` +
       `&select[]=CLOSED` +
       `&select[]=${CAMPO_PROCESSO}` +
@@ -37,7 +35,7 @@ export default async function handler(req, res) {
       `&select[]=${CAMPO_ASSUNTO}` +
       `&select[]=${CAMPO_ULT_MOV}` +
       `&select[]=${CAMPO_DATA_UM}` +
-      `&select[]=CONTACT_ID` + // pega o contato associado
+      `&select[]=CONTACT_ID` +
       `&order[DATE_MODIFY]=DESC`;
 
     const responseDeal = await fetch(urlDeal);
@@ -47,23 +45,36 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, result: null });
     }
 
-    // Escolhe o deal mais relevante (aberto ou mais recente)
+    // Escolhe o deal mais relevante
     let deal = dataDeal.result.find(d => d.CLOSED === "N") || dataDeal.result[0];
 
-    // 2️⃣ Pega o contato associado (ID do cliente)
+    // 2️⃣ Pega o contato associado (nome do cliente)
     let nomeCliente = "";
     if (deal.CONTACT_ID) {
       const urlContact = `${BITRIX_WEBHOOK}/crm.contact.get.json?id=${deal.CONTACT_ID}`;
       const responseContact = await fetch(urlContact);
       const dataContact = await responseContact.json();
-
       if (dataContact.result) {
         const contato = dataContact.result;
         nomeCliente = `${contato.NAME || ""} ${contato.LAST_NAME || ""}`.trim();
       }
     }
 
-    // 3️⃣ Converte STAGE_SEMANTIC_ID em status legível
+    // 3️⃣ Pega todas as fases do pipeline C5 (Kanban)
+    const urlStages = `${BITRIX_WEBHOOK}/crm.deal.stage.list.json?pipeline_id=C5`;
+    const responseStages = await fetch(urlStages);
+    const dataStages = await responseStages.json();
+    let stagesMap = {};
+    if (dataStages.result) {
+      dataStages.result.forEach(stage => {
+        stagesMap[stage.ID] = stage.NAME; // ID -> nome completo da fase
+      });
+    }
+
+    // 4️⃣ Converte STAGE_ID em nome legível
+    const faseLegivel = stagesMap[deal.STAGE_ID] || deal.STAGE_ID;
+
+    // 5️⃣ Converte STAGE_SEMANTIC_ID em status
     const status = deal.STAGE_SEMANTIC_ID === "S"
       ? "Ganhou"
       : deal.STAGE_SEMANTIC_ID === "F"
@@ -79,7 +90,7 @@ export default async function handler(req, res) {
         fechado: deal.CLOSED === "Y",
         comarca: deal[CAMPO_COMARCA] || "",
         assunto: deal[CAMPO_ASSUNTO] || "",
-        fase: deal.STAGE_NAME || deal.STAGE_ID, // agora retorna o nome legível
+        fase: faseLegivel, // agora retorna a fase legível completa
         ultima_movimentacao: deal[CAMPO_ULT_MOV] || "",
         data_ultima_movimentacao: deal[CAMPO_DATA_UM] || ""
       }

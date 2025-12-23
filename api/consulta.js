@@ -12,12 +12,29 @@ export default async function handler(req, res) {
     const BITRIX_WEBHOOK =
       "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
-    const CAMPO_PROCESSO = "UF_CRM_1758883069045"; // Número do Processo
-    const CAMPO_NOME = "UF_CRM_1758883087045";     // Nome do cliente
+    // Campos personalizados
+    const CAMPO_PROCESSO = "UF_CRM_1758883069045";
+    const CAMPO_CLIENTE  = "UF_CRM_1758883087045";
+    const CAMPO_COMARCA  = "UF_CRM_1758883106364";
+    const CAMPO_ASSUNTO  = "UF_CRM_1758883116821";
+    const CAMPO_FASE     = "UF_CRM_1758883132316";
+    const CAMPO_ULT_MOV  = "UF_CRM_1758883141020";
+    const CAMPO_DATA_UM  = "UF_CRM_1758883152876";
 
     const url =
       `${BITRIX_WEBHOOK}/crm.deal.list.json` +
-      `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}`;
+      `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
+      `&select[]=ID` +
+      `&select[]=TITLE` +
+      `&select[]=STAGE_SEMANTIC_ID` +
+      `&select[]=CLOSED` +
+      `&select[]=${CAMPO_PROCESSO}` +
+      `&select[]=${CAMPO_CLIENTE}` +
+      `&select[]=${CAMPO_COMARCA}` +
+      `&select[]=${CAMPO_ASSUNTO}` +
+      `&select[]=${CAMPO_FASE}` +
+      `&select[]=${CAMPO_ULT_MOV}` +
+      `&select[]=${CAMPO_DATA_UM}`;
 
     const response = await fetch(url);
     const data = await response.json();
@@ -26,7 +43,7 @@ export default async function handler(req, res) {
       id: deal.ID,
       titulo: deal.TITLE,
       processo: deal[CAMPO_PROCESSO] || "",
-      cliente: deal[CAMPO_NOME] || "",
+      cliente: deal[CAMPO_CLIENTE] || "",
       status:
         deal.STAGE_SEMANTIC_ID === "S"
           ? "Ganhou"
@@ -34,11 +51,11 @@ export default async function handler(req, res) {
           ? "Perdeu"
           : "Em andamento",
       fechado: deal.CLOSED === "Y",
-      comarca: deal.UF_CRM_1758883106364 || "",
-      assunto: deal.UF_CRM_1758883116821 || "",
-      fase: deal.UF_CRM_1758883132316 || "",
-      ultima_movimentacao: deal.UF_CRM_1758883141020 || "",
-      data_ultima_movimentacao: deal.UF_CRM_1758883152876 || ""
+      comarca: deal[CAMPO_COMARCA] || "",
+      assunto: deal[CAMPO_ASSUNTO] || "",
+      fase: deal[CAMPO_FASE] || "",
+      ultima_movimentacao: deal[CAMPO_ULT_MOV] || "",
+      data_ultima_movimentacao: deal[CAMPO_DATA_UM] || ""
     }));
 
     return res.status(200).json({

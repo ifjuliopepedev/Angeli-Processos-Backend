@@ -28,6 +28,7 @@ export default async function handler(req, res) {
       `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
       `&select[]=ID` +
       `&select[]=STAGE_ID` +
+      `&select[]=PIPELINE_ID` +
       `&select[]=STAGE_SEMANTIC_ID` +
       `&select[]=CLOSED` +
       `&select[]=${CAMPO_PROCESSO}` +
@@ -60,10 +61,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3️⃣ Pega todas as fases do pipeline C5 (Kanban)
-    const urlStages = `${BITRIX_WEBHOOK}/crm.deal.stage.list.json?pipeline_id=C5`;
+    // 3️⃣ Pega todas as fases do pipeline real do deal
+    const pipelineId = deal.PIPELINE_ID || "C5"; // fallback para C5
+    const urlStages = `${BITRIX_WEBHOOK}/crm.deal.stage.list.json?pipeline_id=${pipelineId}`;
     const responseStages = await fetch(urlStages);
     const dataStages = await responseStages.json();
+
     let stagesMap = {};
     if (dataStages.result) {
       dataStages.result.forEach(stage => {
@@ -90,7 +93,7 @@ export default async function handler(req, res) {
         fechado: deal.CLOSED === "Y",
         comarca: deal[CAMPO_COMARCA] || "",
         assunto: deal[CAMPO_ASSUNTO] || "",
-        fase: faseLegivel, // agora retorna a fase legível completa
+        fase: faseLegivel, // agora retorna a fase correta do Kanban
         ultima_movimentacao: deal[CAMPO_ULT_MOV] || "",
         data_ultima_movimentacao: deal[CAMPO_DATA_UM] || ""
       }

@@ -1,53 +1,80 @@
-async function fetchAllDeals(webhook, campoProcesso) {
-  let start = 0;
-  let all = [];
-
-  while (true) {
-    const url =
-      `${webhook}/crm.deal.list.json` +
-      `?select[]=${campoProcesso}` +
-      `&start=${start}`;
-
-    const res = await fetch(url);
-    const data = await res.json();
-
-    if (!data.result || data.result.length === 0) break;
-
-    all.push(...data.result);
-    start += 50;
-  }
-
-  return all;
-}
-
 export default async function handler(req, res) {
   try {
+    const { processo } = req.query;
+
+    if (!processo) {
+      return res.status(400).json({
+        ok: false,
+        error: "Número do processo não informado"
+      });
+    }
+
     const BITRIX_WEBHOOK =
       "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
-    // campo correto do número do processo
     const CAMPO_PROCESSO = "UF_CRM_1758883069045";
+    const CAMPO_CLIENTE  = "UF_CRM_1758883087045";
+    const CAMPO_COMARCA  = "UF_CRM_1758883106364";
+    const CAMPO_ASSUNTO  = "UF_CRM_1758883116821";
+    const CAMPO_FASE     = "UF_CRM_1758883132316";
+    const CAMPO_ULT_MOV  = "UF_CRM_1758883141020";
+    const CAMPO_DATA_UM  = "UF_CRM_1758883152876";
 
-    const deals = await fetchAllDeals(BITRIX_WEBHOOK, CAMPO_PROCESSO);
+    const url =
+      `${BITRIX_WEBHOOK}/crm.deal.list.json` +
+      `?filter[${CAMPO_PROCESSO}]=${encodeURIComponent(processo)}` +
+      `&select[]=ID` +
+      `&select[]=TITLE` +
+      `&select[]=STAGE_SEMANTIC_ID` +
+      `&select[]=CLOSED` +
+      `&select[]=${CAMPO_PROCESSO}` +
+      `&select[]=${CAMPO_CLIENTE}` +
+      `&select[]=${CAMPO_COMARCA}` +
+      `&select[]=${CAMPO_ASSUNTO}` +
+      `&select[]=${CAMPO_FASE}` +
+      `&select[]=${CAMPO_ULT_MOV}` +
+      `&select[]=${CAMPO_DATA_UM}` +
+      `&order[DATE_MODIFY]=DESC`;
 
-    // pega só os números, remove vazios
-    const processos = deals
-      .map(d => d[CAMPO_PROCESSO])
-      .filter(p => p && p.trim() !== "");
+    const response = await fetch(url);
+    const data = await response.json();
 
-    // remove duplicados
-    const unicos = [...new Set(processos)];
+    if (!data.result || data.result.length === 0) {
+      return res.status(200).json({ ok: true, result: null });
+    }
 
-    res.status(200).json({
+    // 🔥 Escolhe o processo mais relevante
+    let deal =
+      data.result.find(d => d.CLOSED === "N") ||
+      data.result[0];
+
+    const status =
+      deal.STAGE_SEMANTIC_ID === "S"
+        ? "Ganhou"
+        : deal.STAGE_SEMANTIC_ID === "F"
+        ? "Perdeu"
+        : "Em andamento";
+
+    return res.status(200).json({
       ok: true,
-      total: unicos.length,
-      processos: unicos
+      result: {
+        processo: deal[CAMPO_PROCESSO] || "",
+        cliente: deal[CAMPO_CLIENTE] || "",
+        status,
+        fechado: deal.CLOSED === "Y",
+        comarca: deal[CAMPO_COMARCA] || "",
+        assunto: deal[CAMPO_ASSUNTO] || "",
+        fase: deal[CAMPO_FASE] || "",
+        ultima_movimentacao: deal[CAMPO_ULT_MOV] || "",
+        data_ultima_movimentacao: deal[CAMPO_DATA_UM] || ""
+      }
     });
 
   } catch (err) {
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
-      error: err.message
+      error: "Erro ao consultar o Bitrix",
+      details: err.message
     });
   }
 }

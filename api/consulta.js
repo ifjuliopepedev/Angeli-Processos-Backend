@@ -1,51 +1,11 @@
 export default async function handler(req, res) {
-export default async function handler(req, res) {
-  try {
-    const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Content-Language", "pt-BR");
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
 
-    const results = {};
-
-    const dealFields = await fetch(`${BITRIX_WEBHOOK}/crm.deal.fields.json`).then(r => r.json());
-    results.dealFields = dealFields.result;
-
-    const contactFields = await fetch(`${BITRIX_WEBHOOK}/crm.contact.fields.json`).then(r => r.json());
-    results.contactFields = contactFields.result;
-
-    const companyFields = await fetch(`${BITRIX_WEBHOOK}/crm.company.fields.json`).then(r => r.json());
-    results.companyFields = companyFields.result;
-
-    const types = await fetch(`${BITRIX_WEBHOOK}/crm.type.list.json`).then(r => r.json());
-    results.types = types.result;
-
-    results.smartProcessFields = {};
-
-    if (types.result) {
-      for (const type of types.result) {
-        const entityTypeId = type.id;
-
-        const fields = await fetch(
-          `${BITRIX_WEBHOOK}/crm.item.fields.json?entityTypeId=${entityTypeId}`
-        ).then(r => r.json());
-
-        results.smartProcessFields[entityTypeId] = {
-          name: type.title,
-          fields: fields.result
-        };
-      }
-    }
-
-    return res.status(200).json({
-      ok: true,
-      data: results
-    });
-
-  } catch (err) {
-    return res.status(500).json({
-      ok: false,
-      error: err.message
-    });
-  }
-}
+  if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
     const { processo } = req.query;
@@ -74,6 +34,7 @@ export default async function handler(req, res) {
       "C5:UC_7ODNO2": "Aguardando pagamento da condenação",
       "C5:UC_47AKQC": "Fase recursal",
       "C5:WON": "Processo arquivado / encerrado"
+      "C5:UC_SF1BCH": "Processo Suspenso"
     };
 
     // Consulta os deals pelo processo

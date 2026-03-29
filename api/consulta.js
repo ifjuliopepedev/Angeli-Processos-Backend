@@ -34,6 +34,7 @@ export default async function handler(req, res) {
       "C5:UC_7ODNO2": "Aguardando pagamento da condenação",
       "C5:UC_47AKQC": "Fase recursal",
       "C5:WON": "Processo arquivado / encerrado"
+      "C5:UC_SF1BCH": "Processo Suspenso"
     };
 
     // Consulta os deals pelo processo

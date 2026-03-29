@@ -1,11 +1,51 @@
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Content-Language", "pt-BR");
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
+export default async function handler(req, res) {
+  try {
+    const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
-  if (req.method === "OPTIONS") return res.status(200).end();
+    const results = {};
+
+    const dealFields = await fetch(`${BITRIX_WEBHOOK}/crm.deal.fields.json`).then(r => r.json());
+    results.dealFields = dealFields.result;
+
+    const contactFields = await fetch(`${BITRIX_WEBHOOK}/crm.contact.fields.json`).then(r => r.json());
+    results.contactFields = contactFields.result;
+
+    const companyFields = await fetch(`${BITRIX_WEBHOOK}/crm.company.fields.json`).then(r => r.json());
+    results.companyFields = companyFields.result;
+
+    const types = await fetch(`${BITRIX_WEBHOOK}/crm.type.list.json`).then(r => r.json());
+    results.types = types.result;
+
+    results.smartProcessFields = {};
+
+    if (types.result) {
+      for (const type of types.result) {
+        const entityTypeId = type.id;
+
+        const fields = await fetch(
+          `${BITRIX_WEBHOOK}/crm.item.fields.json?entityTypeId=${entityTypeId}`
+        ).then(r => r.json());
+
+        results.smartProcessFields[entityTypeId] = {
+          name: type.title,
+          fields: fields.result
+        };
+      }
+    }
+
+    return res.status(200).json({
+      ok: true,
+      data: results
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
+}
 
   try {
     const { processo } = req.query;
@@ -14,10 +54,6 @@ export default async function handler(req, res) {
     }
 
     const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
-
-      const fieldsResponse = await fetch(`${BITRIX_WEBHOOK}/crm.deal.fields.json`);
-  const fieldsData = await fieldsResponse.json();
-  console.log(fieldsData);
 
     // Campos do deal
     const CAMPO_PROCESSO = "UF_CRM_1758883069045";

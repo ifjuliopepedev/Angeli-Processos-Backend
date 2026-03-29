@@ -15,6 +15,10 @@ export default async function handler(req, res) {
 
     const BITRIX_WEBHOOK = "https://angeliadvogados.bitrix24.com.br/rest/13/rmyrytghiumw6jrx";
 
+      const fieldsResponse = await fetch(`${BITRIX_WEBHOOK}/crm.deal.fields.json`);
+  const fieldsData = await fieldsResponse.json();
+  console.log(fieldsData);
+
     // Campos do deal
     const CAMPO_PROCESSO = "UF_CRM_1758883069045";
     const CAMPO_COMARCA  = "UF_CRM_1758883106364";
